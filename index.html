@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мой Планировщик Недели</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/launchericon-192x192.png?v=3">
+    <link rel="icon" type="image/png" sizes="96x96" href="/icons/launchericon-96x96.png?v=3">
+    <link rel="apple-touch-icon" href="/icons/launchericon-192x192.png?v=3">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <script src="/vendor/tailwind.js"></script>
+    <script src="/vendor/lucide.min.js"></script>
+    <link rel="stylesheet" href="/vendor/fonts/inter.css">
+    <style>
+        html, body { overflow-x: hidden; max-width: 100%; }
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .cell-hover:hover { filter: brightness(1.15); cursor: pointer; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Шапка (Темная тема) -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600/20 border border-blue-500/30 p-2.5 rounded-xl text-blue-400 shadow-md shadow-blue-500/10">
+                    <i data-lucide="brain" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-100 tracking-tight">Планировщик & Трекер</h1>
+                    <p class="text-xs text-slate-400">Темная тема • Данные сохраняются навсегда</p>
+                </div>
+            </div>
+            
+            <!-- Кнопка установки приложения (появляется, когда Chrome разрешает установку) -->
+            <button id="install-btn" hidden class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-semibold transition shadow-md shadow-blue-500/20">📲 Установить приложение</button>
+
+            <!-- Навигация по вкладкам -->
+            <div class="flex bg-slate-800/80 p-1.5 rounded-xl gap-1 overflow-x-auto w-full sm:w-auto max-w-full border border-slate-700/50">
+                <button onclick="switchTab('odd')" id="btn-odd" class="px-4 py-2 text-xs font-semibold rounded-lg transition text-slate-300 whitespace-nowrap shrink-0">Нечётная неделя</button>
+                <button onclick="switchTab('even')" id="btn-even" class="px-4 py-2 text-xs font-semibold rounded-lg transition text-slate-300 whitespace-nowrap shrink-0">Чётная неделя</button>
+                <button onclick="switchTab('tracker')" id="btn-tracker" class="px-4 py-2 text-xs font-semibold rounded-lg transition text-slate-300 whitespace-nowrap shrink-0">Трекер & Стрик</button>
+                <button onclick="switchTab('summary')" id="btn-summary" class="px-4 py-2 text-xs font-semibold rounded-lg transition text-slate-300 whitespace-nowrap shrink-0">Сводка</button>
+                <button onclick="switchTab('settings')" id="btn-settings" class="px-4 py-2 text-xs font-semibold rounded-lg transition text-slate-300 whitespace-nowrap shrink-0">Настройки</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Основной контент -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-8 pb-24 flex-1 w-full min-w-0">
+        
+        <!-- Вкладка: Нечётная неделя -->
+        <div id="tab-odd" class="tab-content space-y-4">
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl text-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-sm">
+                <span class="text-slate-400">💡 Кликните на любую ячейку сетки, чтобы изменить занятие.</span>
+                <button onclick="resetSchedule('odd')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl font-medium transition border border-slate-700">Сбросить неделю</button>
+            </div>
+            <div class="bg-slate-900 rounded-2xl shadow-sm border border-slate-800 overflow-hidden">
+                <div id="grid-container-odd" class="overflow-x-auto"></div>
+            </div>
+        </div>
+
+        <!-- Вкладка: Чётная неделя -->
+        <div id="tab-even" class="tab-content space-y-4 hidden">
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl text-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-sm">
+                <span class="text-slate-400">💡 Кликните на ячейку для изменения расписания чётной недели.</span>
+                <button onclick="resetSchedule('even')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl font-medium transition border border-slate-700">Сбросить неделю</button>
+            </div>
+            <div class="bg-slate-900 rounded-2xl shadow-sm border border-slate-800 overflow-hidden">
+                <div id="grid-container-even" class="overflow-x-auto"></div>
+            </div>
+        </div>
+
+        <!-- Вкладка: Трекер и Стрик -->
+        <div id="tab-tracker" class="tab-content space-y-6 hidden max-w-2xl mx-auto">
+            
+            <!-- Большой счетчик стрика -->
+            <div class="bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-900 text-white p-6 rounded-3xl border border-slate-800 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div class="flex items-center gap-4">
+                    <div id="flame-box" class="p-4 rounded-2xl shadow-inner transition-all duration-500 border bg-slate-800/80 border-slate-700 text-slate-500">
+                        <i data-lucide="flame" class="w-8 h-8 fill-current"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold">ТЕКУЩАЯ СЕРИЯ</p>
+                        <h2 id="streak-count" class="text-3xl font-extrabold tracking-tight transition-colors duration-500 text-slate-400">0 дней подряд</h2>
+                    </div>
+                </div>
+                <div class="text-center sm:text-right text-xs text-slate-400 max-w-xs">
+                    Если за любой день пропущен хотя бы один из установленных пунктов, серия сбрасывается.
+                </div>
+            </div>
+
+            <!-- Окошко ввода результатов за день -->
+            <div class="bg-slate-900 rounded-3xl shadow-sm border border-slate-800 p-4 sm:p-6 space-y-5">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-4 gap-3">
+                    <div>
+                        <h3 class="font-bold text-slate-100 text-base">Результаты дня</h3>
+                        <p id="day-status-text" class="text-xs text-slate-400 mt-0.5">Выберите дату для просмотра или изменения</p>
+                    </div>
+                    <input type="date" id="input-date" onchange="loadDateData()" class="w-full sm:w-auto bg-slate-800 border border-slate-700 text-slate-100 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium">
+                </div>
+
+                <div id="dynamic-inputs-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+
+                <button onclick="saveDailyProgress()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition shadow-md shadow-indigo-600/20 text-sm flex items-center justify-center gap-2">
+                    <i data-lucide="check-circle-2" class="w-4 h-4"></i> Сохранить и проверить серию
+                </button>
+            </div>
+
+            <!-- История записей -->
+            <div class="bg-slate-900 rounded-3xl shadow-sm border border-slate-800 p-4 sm:p-6 space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <h3 class="font-bold text-slate-100 text-base flex items-center gap-2">
+                        <i data-lucide="history" class="w-4 h-4 text-indigo-400"></i> История записей
+                    </h3>
+                    <span class="text-[11px] text-slate-500">Упорядочено по календарю</span>
+                </div>
+                <div id="tracker-history" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
+            </div>
+
+        </div>
+
+        <!-- Вкладка: Сводка -->
+        <div id="tab-summary" class="tab-content space-y-6 hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-sm">
+                    <h3 class="font-bold text-slate-100 mb-4 flex items-center gap-2"><i data-lucide="pie-chart" class="w-5 h-5 text-indigo-400"></i> Часы (Нечётная неделя)</h3>
+                    <div id="summary-pillars-odd" class="space-y-2"></div>
+                </div>
+                <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-sm">
+                    <h3 class="font-bold text-slate-100 mb-4 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-indigo-400"></i> Часы (Чётная неделя)</h3>
+                    <div id="summary-pillars-even" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладка: Настройки -->
+        <div id="tab-settings" class="tab-content space-y-6 hidden max-w-2xl mx-auto">
+            
+            <!-- Редактор времени (Сетки часов) -->
+            <div class="bg-slate-900 p-5 sm:p-8 rounded-3xl border border-slate-800 shadow-sm space-y-4">
+                <h3 class="text-lg font-bold text-slate-100 border-b border-slate-800 pb-3">Редактор ячеек времени (Шаг сетки)</h3>
+                <p class="text-xs text-slate-400">Выберите интервал времени для расписания (например, каждые 30 минут или каждый час). Сетка охватывает все 24 часа — с 00:00 до 23:59.</p>
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <select id="time-step-select" class="w-full sm:flex-1 min-w-0 bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="30">Каждые 30 минут (00:00, 00:30 … 23:30)</option>
+                        <option value="60">Каждый 1 час (00:00, 01:00 … 23:00)</option>
+                    </select>
+                    <button onclick="applyTimeStep()" class="w-full sm:w-auto shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition">Применить шаг</button>
+                </div>
+            </div>
+
+            <!-- Редактор категорий -->
+            <div class="bg-slate-900 p-5 sm:p-8 rounded-3xl border border-slate-800 shadow-sm space-y-6">
+                <div class="flex flex-wrap justify-between items-center gap-3 border-b border-slate-800 pb-4">
+                    <div class="min-w-0 flex-1">
+                        <h3 class="text-lg font-bold text-slate-100">Категории и дневные минимумы</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Управляйте категориями для отслеживания стрика</p>
+                    </div>
+                    <button onclick="addNewCategoryPrompt()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap transition">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Добавить
+                    </button>
+                </div>
+                <div id="categories-editor-list" class="space-y-3"></div>
+            </div>
+
+            <!-- Редактор занятий -->
+            <div class="bg-slate-900 p-5 sm:p-8 rounded-3xl border border-slate-800 shadow-sm space-y-6">
+                <div class="flex flex-wrap justify-between items-center gap-3 border-b border-slate-800 pb-4">
+                    <div class="min-w-0 flex-1">
+                        <h3 class="text-lg font-bold text-slate-100">Редактор занятий</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Добавляйте новые занятия и привязывайте их к категориям</p>
+                    </div>
+                    <button onclick="addNewActivityPrompt()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap transition">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Добавить занятие
+                    </button>
+                </div>
+                <div id="activities-editor-list" class="space-y-3 max-h-80 overflow-y-auto pr-1"></div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button onclick="localStorage.clear(); location.reload();" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-4 py-2.5 rounded-xl text-xs font-semibold hover:bg-rose-500/20 transition">Сбросить все данные</button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Модальное окно выбора занятия -->
+    <div id="editModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold text-slate-100">Выберите занятие</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-200 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <p id="modalInfo" class="text-xs text-slate-400"></p>
+            <div id="activitiesList" class="grid grid-cols-1 gap-2 max-h-80 overflow-y-auto pr-1"></div>
+        </div>
+    </div>
+
+    <script>
+        // Единая палитра цветов для каждого столпа / категории
+        const pillarColors = {
+            "Духовное": "bg-purple-950/50 text-purple-300 border border-purple-800/60",
+            "Физическое": "bg-rose-950/50 text-rose-300 border border-rose-800/60",
+            "Интеллектуальное": "bg-indigo-950/50 text-indigo-300 border border-indigo-800/60",
+            "Вышмат": "bg-indigo-950/50 text-indigo-300 border border-indigo-800/60",
+            "Вуз": "bg-emerald-950/50 text-emerald-300 border border-emerald-800/60",
+            "Быт и дорога": "bg-amber-950/50 text-amber-300 border border-amber-800/60",
+            "Отдых": "bg-slate-800/70 text-slate-300 border border-slate-700/60"
+        };
+
+        function getPillarColor(pillarName) {
+            return pillarColors[pillarName] || "bg-indigo-950/50 text-indigo-300 border border-indigo-800/60";
+        }
+
+        const defaultActivities = {
+            "Сон": { pillar: "Быт и дорога" },
+            "Сборы / еда": { pillar: "Быт и дорога" },
+            "Дорога": { pillar: "Быт и дорога" },
+            "Дорога + English": { pillar: "Интеллектуальное" },
+            "Дорога + аудиокнига": { pillar: "Духовное" },
+            "Пары": { pillar: "Вуз" },
+            "Вуз: ДЗ / самост.": { pillar: "Вуз" },
+            "Вышмат": { pillar: "Интеллектуальное" },
+            "English (чат-бот)": { pillar: "Интеллектуальное" },
+            "Разбор недели": { pillar: "Интеллектуальное" },
+            "Зарядка / растяжка": { pillar: "Физическое" },
+            "Силовая": { pillar: "Физическое" },
+            "Байк / кардио": { pillar: "Физическое" },
+            "Чтение": { pillar: "Духовное" },
+            "Фильм": { pillar: "Духовное" },
+            "Сингл-игра": { pillar: "Духовное" },
+            "Прогулка / дневник": { pillar: "Духовное" },
+            "Общение": { pillar: "Духовное" },
+            "Свободное / отдых": { pillar: "Отдых" }
+        };
+
+        const days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
+        let timeStepMinutes = Number(localStorage.getItem('time_step_minutes')) || 30;
+
+        function getTimesList() {
+            let tList = [];
+            for (let h = 0; h < 24; h++) {
+                tList.push(`${String(h).padStart(2, '0')}:00`);
+                if (timeStepMinutes === 30) {
+                    tList.push(`${String(h).padStart(2, '0')}:30`);
+                }
+            }
+            return tList;
+        }
+
+        function getDefaultSchedule() {
+            let grid = {};
+            let times = getTimesList();
+            times.forEach(t => {
+                grid[t] = {};
+                days.forEach(d => {
+                    grid[t][d] = getDefaultActivity(t, d);
+                });
+            });
+            return grid;
+        }
+
+        function getDefaultActivity(t, d) {
+            if (t >= "09:00" && t <= "14:00" && d !== "Вс") return "Пары";
+            if (t < "07:00" || t >= "23:00") return "Сон";
+            if (t < "09:00") return "Сборы / еда";
+            return "Свободное / отдых";
+        }
+
+        // Дополняет сохранённое расписание недостающими ячейками (например, ночными часами),
+        // не трогая уже заполненные пользователем.
+        function fillMissingSlots(sched) {
+            getTimesList().forEach(t => {
+                if (!sched[t]) sched[t] = {};
+                days.forEach(d => {
+                    if (!sched[t][d]) sched[t][d] = getDefaultActivity(t, d);
+                });
+            });
+            return sched;
+        }
+
+        const defaultCategories = [
+            { id: "physical", name: "Физическое", min: 20 },
+            { id: "math", name: "Вышмат", min: 60 },
+            { id: "english", name: "Английский", min: 20 },
+            { id: "spiritual", name: "Духовное", min: 15 }
+        ];
+
+        let scheduleOdd = fillMissingSlots(JSON.parse(localStorage.getItem('schedule_odd')) || getDefaultSchedule());
+        let scheduleEven = fillMissingSlots(JSON.parse(localStorage.getItem('schedule_even')) || getDefaultSchedule());
+        localStorage.setItem('schedule_odd', JSON.stringify(scheduleOdd));
+        localStorage.setItem('schedule_even', JSON.stringify(scheduleEven));
+        let categories = JSON.parse(localStorage.getItem('planner_categories')) || defaultCategories;
+        let activities = JSON.parse(localStorage.getItem('planner_activities')) || defaultActivities;
+
+        let currentEditing = { type: '', time: '', day: '' };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('input-date');
+            if(dateInput) {
+                dateInput.value = todayStr;
+            }
+            renderDynamicInputs();
+            loadDateData();
+        });
+
+        function saveCategories() {
+            localStorage.setItem('planner_categories', JSON.stringify(categories));
+            renderDynamicInputs();
+            renderTracker();
+        }
+
+        function saveActivities() {
+            localStorage.setItem('planner_activities', JSON.stringify(activities));
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('header button').forEach(el => el.classList.remove('bg-indigo-600', 'text-white'));
+            
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            const btn = document.getElementById('btn-' + tabId);
+            if(btn) {
+                btn.classList.add('bg-indigo-600', 'text-white');
+                btn.classList.remove('text-slate-300');
+                btn.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            }
+
+            if (tabId === 'odd') renderGrid('odd');
+            if (tabId === 'even') renderGrid('even');
+            if (tabId === 'tracker') {
+                renderDynamicInputs();
+                loadDateData();
+                renderTracker();
+            }
+            if (tabId === 'summary') renderSummary();
+            if (tabId === 'settings') {
+                renderSettingsCategories();
+                renderSettingsActivities();
+                document.getElementById('time-step-select').value = timeStepMinutes;
+            }
+            lucide.createIcons();
+        }
+
+        function renderGrid(type) {
+            const container = document.getElementById(`grid-container-${type}`);
+            const data = type === 'odd' ? scheduleOdd : scheduleEven;
+            const times = getTimesList();
+            
+            let html = `<table class="w-full border-collapse text-xs">
+                <thead>
+                    <tr class="bg-slate-950/60 text-slate-400 border-b border-slate-800">
+                        <th class="p-3 text-left font-semibold sticky left-0 bg-slate-900 z-10">Время</th>
+                        ${days.map(d => `<th class="p-3 text-center font-semibold">${d}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            times.forEach(t => {
+                html += `<tr class="border-b border-slate-800/50">
+                    <td class="p-2.5 font-medium text-slate-500 sticky left-0 bg-slate-900 border-r border-slate-800">${t}</td>`;
+                days.forEach(d => {
+                    let act = data[t] && data[t][d] ? data[t][d] : "Свободное / отдых";
+                    let pillar = activities[act] ? activities[act].pillar : "Отдых";
+                    let colorClass = getPillarColor(pillar);
+                    
+                    html += `<td class="p-1.5 text-center">
+                        <div onclick="openModal('${type}', '${t}', '${d}')" class="cell-hover px-2.5 py-2 rounded-xl font-medium truncate ${colorClass} transition shadow-xs" title="${act}">
+                            ${act}
+                        </div>
+                    </td>`;
+                });
+                html += `</tr>`;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function openModal(type, time, day) {
+            currentEditing = { type, time, day };
+            document.getElementById('modalInfo').textContent = `${type === 'odd' ? 'Нечётная' : 'Чётная'} неделя • ${day}, ${time}`;
+            
+            const listContainer = document.getElementById('activitiesList');
+            listContainer.innerHTML = Object.keys(activities).map(actName => {
+                let pillar = activities[actName].pillar;
+                let colorClass = getPillarColor(pillar);
+                return `
+                    <button onclick="selectActivity('${actName}')" class="w-full text-left px-4 py-2.5 rounded-xl text-xs font-semibold ${colorClass} hover:opacity-90 transition flex justify-between items-center shadow-xs">
+                        <span>${actName}</span>
+                        <span class="text-[10px] opacity-75">${pillar}</span>
+                    </button>
+                `;
+            }).join('');
+
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        function selectActivity(act) {
+            const { type, time, day } = currentEditing;
+            if (type === 'odd') {
+                if (!scheduleOdd[time]) scheduleOdd[time] = {};
+                scheduleOdd[time][day] = act;
+                localStorage.setItem('schedule_odd', JSON.stringify(scheduleOdd));
+                renderGrid('odd');
+            } else {
+                if (!scheduleEven[time]) scheduleEven[time] = {};
+                scheduleEven[time][day] = act;
+                localStorage.setItem('schedule_even', JSON.stringify(scheduleEven));
+                renderGrid('even');
+            }
+            closeModal();
+        }
+
+        function resetSchedule(type) {
+            if (confirm("Сбросить расписание к стандартному шаблону?")) {
+                if (type === 'odd') {
+                    scheduleOdd = getDefaultSchedule();
+                    localStorage.setItem('schedule_odd', JSON.stringify(scheduleOdd));
+                    renderGrid('odd');
+                } else {
+                    scheduleEven = getDefaultSchedule();
+                    localStorage.setItem('schedule_even', JSON.stringify(scheduleEven));
+                    renderGrid('even');
+                }
+            }
+        }
+
+        function applyTimeStep() {
+            const val = Number(document.getElementById('time-step-select').value);
+            timeStepMinutes = val;
+            localStorage.setItem('time_step_minutes', val);
+            scheduleOdd = getDefaultSchedule();
+            scheduleEven = getDefaultSchedule();
+            localStorage.setItem('schedule_odd', JSON.stringify(scheduleOdd));
+            localStorage.setItem('schedule_even', JSON.stringify(scheduleEven));
+            alert("Шаг сетки времени изменен! Расписание сброшено под новый шаг.");
+        }
+
+        function renderDynamicInputs() {
+            const container = document.getElementById('dynamic-inputs-container');
+            if(!container) return;
+            container.innerHTML = categories.map(cat => `
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">${cat.name} (мин)</label>
+                    <input type="number" id="val-${cat.id}" placeholder="0" class="w-full bg-slate-800 border border-slate-700 text-slate-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            `).join('');
+        }
+
+        function selectHistoryDate(dateStr) {
+            document.getElementById('input-date').value = dateStr;
+            loadDateData();
+        }
+
+        function loadDateData() {
+            const dateStr = document.getElementById('input-date').value;
+            let trackerData = JSON.parse(localStorage.getItem('tracker_data')) || {};
+            let row = trackerData[dateStr] || {};
+
+            categories.forEach(cat => {
+                const el = document.getElementById(`val-${cat.id}`);
+                if(el) {
+                    el.value = (row[cat.id] !== undefined && row[cat.id] !== null) ? row[cat.id] : '';
+                }
+            });
+
+            renderTracker();
+        }
+
+        function saveDailyProgress() {
+            const dateStr = document.getElementById('input-date').value;
+            if (!dateStr) {
+                alert("Выберите дату!");
+                return;
+            }
+
+            let entry = {};
+            categories.forEach(cat => {
+                const el = document.getElementById(`val-${cat.id}`);
+                entry[cat.id] = el ? (Number(el.value) || 0) : 0;
+            });
+
+            let trackerData = JSON.parse(localStorage.getItem('tracker_data')) || {};
+            trackerData[dateStr] = entry;
+            localStorage.setItem('tracker_data', JSON.stringify(trackerData));
+
+            renderTracker();
+            alert("Результаты за " + dateStr + " успешно сохранены!");
+        }
+
+        function updateFlameStyle(streak) {
+            const flameBox = document.getElementById('flame-box');
+            const streakCountEl = document.getElementById('streak-count');
+            if (!flameBox || !streakCountEl) return;
+
+            if (streak === 0) {
+                flameBox.className = "p-4 rounded-2xl shadow-inner transition-all duration-500 border bg-slate-800/80 border-slate-700 text-slate-500";
+                streakCountEl.className = "text-3xl font-extrabold tracking-tight transition-colors duration-500 text-slate-400";
+                return;
+            }
+
+            const ratio = Math.min(streak / 1000, 1);
+
+            if (ratio < 0.1) {
+                flameBox.className = "p-4 rounded-2xl shadow-inner transition-all duration-500 border bg-amber-950/40 border-amber-800/60 text-amber-500";
+                streakCountEl.className = "text-3xl font-extrabold tracking-tight transition-colors duration-500 text-amber-500";
+            } else if (ratio < 0.4) {
+                flameBox.className = "p-4 rounded-2xl shadow-md transition-all duration-500 border bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-amber-500/10";
+                streakCountEl.className = "text-3xl font-extrabold tracking-tight transition-colors duration-500 text-amber-400";
+            } else if (ratio < 0.8) {
+                flameBox.className = "p-4 rounded-2xl shadow-lg transition-all duration-500 border bg-orange-500/30 border-amber-400 text-yellow-300 shadow-amber-400/20 animate-pulse";
+                streakCountEl.className = "text-3xl font-extrabold tracking-tight transition-colors duration-500 text-yellow-300";
+            } else {
+                flameBox.className = "p-4 rounded-2xl shadow-2xl transition-all duration-500 border bg-amber-300/40 border-white text-white shadow-white/30 animate-pulse";
+                streakCountEl.className = "text-3xl font-extrabold tracking-tight transition-colors duration-500 text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]";
+            }
+        }
+
+        function renderTracker() {
+            let trackerData = JSON.parse(localStorage.getItem('tracker_data')) || {};
+            
+            let savedDates = Object.keys(trackerData).filter(d => {
+                let r = trackerData[d];
+                return r && categories.some(cat => (r[cat.id] || 0) > 0);
+            });
+
+            savedDates.sort((a, b) => b.localeCompare(a));
+
+            let today = new Date();
+            let todayStr = today.toISOString().split('T')[0];
+            let chronDays = [];
+
+            for (let i = 60; i >= 0; i--) {
+                let d = new Date(today);
+                d.setDate(today.getDate() - i);
+                let dateStr = d.toISOString().split('T')[0];
+                
+                let row = trackerData[dateStr] || {};
+                let allDone = categories.length > 0 && categories.every(cat => (row[cat.id] || 0) >= cat.min);
+
+                chronDays.push({ dateStr, allDone });
+            }
+
+            let currentStreak = 0;
+            for (let day of chronDays) {
+                if (day.dateStr > todayStr) continue;
+                if (day.allDone) {
+                    currentStreak++;
+                } else {
+                    if (day.dateStr !== todayStr) {
+                        currentStreak = 0;
+                    }
+                }
+            }
+
+            document.getElementById('streak-count').textContent = `${currentStreak} дней подряд`;
+            updateFlameStyle(currentStreak);
+
+            const dateStr = document.getElementById('input-date').value;
+            let row = trackerData[dateStr];
+            let statusTextEl = document.getElementById('day-status-text');
+            if (row && categories.some(cat => (row[cat.id] || 0) > 0)) {
+                let allDone = categories.length > 0 && categories.every(cat => (row[cat.id] || 0) >= cat.min);
+                if (allDone) {
+                    statusTextEl.innerHTML = '<span class="text-emerald-400 font-semibold">✓ Все минимальные условия для этого дня выполнены</span>';
+                } else {
+                    statusTextEl.innerHTML = '<span class="text-amber-400">⚠ День заполнен частично или не дотянут до минимумов</span>';
+                }
+            } else {
+                statusTextEl.textContent = 'Данные за этот день еще не вносились';
+            }
+
+            const historyContainer = document.getElementById('tracker-history');
+            if (savedDates.length === 0) {
+                historyContainer.innerHTML = '<p class="text-xs text-slate-500 py-2">Сохраненных записей пока нет. Внесите минуты выше и нажмите сохранить.</p>';
+            } else {
+                historyContainer.innerHTML = savedDates.map(d => {
+                    let r = trackerData[d];
+                    let allDone = categories.length > 0 && categories.every(cat => (r[cat.id] || 0) >= cat.min);
+                    let summaryText = categories.map(cat => `${cat.name.slice(0, 4)}: ${r[cat.id]||0}м`).join(' | ');
+
+                    return `
+                        <div onclick="selectHistoryDate('${d}')" class="flex items-center justify-between gap-2 p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 hover:bg-slate-800 transition cursor-pointer">
+                            <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 min-w-0">
+                                <span class="text-xs font-semibold text-slate-200">${d}</span>
+                                <span class="text-[11px] text-slate-400 truncate">${summaryText}</span>
+                            </div>
+                            <div class="shrink-0">
+                                ${allDone ? 
+                                    '<span class="text-emerald-400 font-bold text-xs flex items-center gap-1 bg-emerald-950/40 px-2.5 py-1 rounded-xl border border-emerald-800/50">✓ Выполнено</span>' : 
+                                    '<span class="text-amber-400 font-semibold text-xs flex items-center gap-1 bg-amber-950/40 px-2.5 py-1 rounded-xl border border-amber-800/50">⚠ Частично</span>'
+                                }
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            lucide.createIcons();
+        }
+
+        function renderSettingsCategories() {
+            const container = document.getElementById('categories-editor-list');
+            if(!container) return;
+
+            container.innerHTML = categories.map((cat, idx) => `
+                <div class="flex items-center gap-2 bg-slate-800/60 border border-slate-700/60 p-2.5 sm:p-3 rounded-2xl">
+                    <input type="text" value="${cat.name}" onchange="updateCategoryName(${idx}, this.value)" class="flex-1 min-w-0 w-0 bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <div class="flex items-center gap-1 shrink-0">
+                        <span class="text-[11px] text-slate-400">Мин:</span>
+                        <input type="number" value="${cat.min}" onchange="updateCategoryMin(${idx}, this.value)" class="w-14 bg-slate-800 border border-slate-700 text-slate-100 text-xs text-center rounded-xl py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <button onclick="removeCategory(${idx})" class="shrink-0 text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition" title="Удалить категорию">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderSettingsActivities() {
+            const container = document.getElementById('activities-editor-list');
+            if(!container) return;
+
+            container.innerHTML = Object.entries(activities).map(([actName, actData]) => {
+                let colorClass = getPillarColor(actData.pillar);
+                return `
+                    <div class="flex items-center justify-between gap-2 bg-slate-800/60 border border-slate-700/60 p-3 rounded-2xl">
+                        <div class="flex flex-wrap items-center gap-2 min-w-0">
+                            <span class="text-xs font-semibold text-slate-200">${actName}</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-md ${colorClass}">${actData.pillar}</span>
+                        </div>
+                        <button onclick="removeActivity('${actName}')" class="shrink-0 text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition" title="Удалить занятие">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function updateCategoryName(index, val) {
+            if(!val.trim()) return;
+            categories[index].name = val.trim();
+            saveCategories();
+        }
+
+        function updateCategoryMin(index, val) {
+            categories[index].min = Number(val) || 0;
+            saveCategories();
+        }
+
+        function removeCategory(index) {
+            if (categories.length <= 1) {
+                alert("Должна оставаться хотя бы одна категория!");
+                return;
+            }
+            if (confirm(`Удалить категорию "${categories[index].name}"?`)) {
+                categories.splice(index, 1);
+                saveCategories();
+                renderSettingsCategories();
+            }
+        }
+
+        function addNewCategoryPrompt() {
+            const name = prompt("Введите название новой категории:");
+            if (!name || !name.trim()) return;
+            const minStr = prompt("Введите дневной минимум в минутах для этой категории:", "30");
+            const min = Number(minStr) || 0;
+            const id = 'cat_' + Date.now();
+
+            categories.push({ id, name: name.trim(), min });
+            saveCategories();
+            renderSettingsCategories();
+        }
+
+        function addNewActivityPrompt() {
+            const name = prompt("Введите название нового занятия:");
+            if (!name || !name.trim()) return;
+            const pillar = prompt("К какой категории относится? (Духовное, Физическое, Интеллектуальное, Вуз, Быт и дорога, Отдых):", "Духовное");
+            if (!pillar || !pillar.trim()) return;
+
+            activities[name.trim()] = { pillar: pillar.trim() };
+            saveActivities();
+            renderSettingsActivities();
+        }
+
+        function removeActivity(actName) {
+            if (confirm(`Удалить занятие "${actName}"?`)) {
+                delete activities[actName];
+                saveActivities();
+                renderSettingsActivities();
+            }
+        }
+
+        function renderSummary() {
+            function calcPillars(sched) {
+                let pillars = { "Физическое": 0, "Интеллектуальное": 0, "Духовное": 0, "Вуз": 0, "Быт и дорога": 0, "Отдых": 0 };
+                const slotHours = timeStepMinutes / 60;
+                getTimesList().forEach(t => {
+                    days.forEach(d => {
+                        let act = sched[t] && sched[t][d] ? sched[t][d] : "Свободное / отдых";
+                        let pillar = activities[act] ? activities[act].pillar : "Отдых";
+                        if (pillars[pillar] !== undefined) pillars[pillar] += slotHours;
+                    });
+                });
+                Object.keys(pillars).forEach(k => { pillars[k] = Math.round(pillars[k] * 10) / 10; });
+                return pillars;
+            }
+
+            let pOdd = calcPillars(scheduleOdd);
+            let pEven = calcPillars(scheduleEven);
+
+            document.getElementById('summary-pillars-odd').innerHTML = Object.entries(pOdd).map(([k, v]) => `
+                <div class="flex justify-between items-center py-2 border-b border-slate-800 text-xs">
+                    <span class="font-medium text-slate-400">${k}</span>
+                    <span class="font-bold text-slate-200">${v} часов</span>
+                </div>
+            `).join('');
+
+            document.getElementById('summary-pillars-even').innerHTML = Object.entries(pEven).map(([k, v]) => `
+                <div class="flex justify-between items-center py-2 border-b border-slate-800 text-xs">
+                    <span class="font-medium text-slate-400">${k}</span>
+                    <span class="font-bold text-slate-200">${v} часов</span>
+                </div>
+            `).join('');
+        }
+
+        switchTab('odd');
+    </script>
+    <script>
+        // Регистрируем service worker сразу, не дожидаясь загрузки внешних CDN.
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                .catch((e) => console.error('Service worker не зарегистрирован:', e));
+        }
+
+        // Кнопка «Установить приложение»
+        let deferredInstall = null;
+        const installBtn = document.getElementById('install-btn');
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstall = e;
+            installBtn.hidden = false;
+        });
+        installBtn.addEventListener('click', async () => {
+            if (!deferredInstall) return;
+            deferredInstall.prompt();
+            await deferredInstall.userChoice;
+            deferredInstall = null;
+            installBtn.hidden = true;
+        });
+        window.addEventListener('appinstalled', () => { installBtn.hidden = true; });
+
+        // Диагностика: откройте сайт с ?pwa-check в адресе, чтобы увидеть, что мешает установке.
+        if (location.search.includes('pwa-check')) {
+            window.addEventListener('load', async () => {
+                const lines = [];
+                lines.push('HTTPS: ' + (location.protocol === 'https:' ? '✅' : '❌ откройте сайт по https://'));
+                lines.push('Service worker поддерживается: ' + ('serviceWorker' in navigator ? '✅' : '❌'));
+                try {
+                    const reg = await navigator.serviceWorker.getRegistration('/');
+                    lines.push('Service worker зарегистрирован: ' + (reg ? '✅' : '❌'));
+                } catch (e) { lines.push('Service worker: ❌ ' + e.message); }
+                try {
+                    const m = await (await fetch('/manifest.json', { cache: 'no-store' })).json();
+                    lines.push('Манифест загружен: ✅ (' + m.name + ')');
+                    for (const ic of m.icons.filter((i) => ['192x192', '512x512'].includes(i.sizes))) {
+                        const r = await fetch(ic.src, { cache: 'no-store' });
+                        lines.push('Иконка ' + ic.sizes + ': ' + (r.ok ? '✅' : '❌ ' + r.status));
+                    }
+                } catch (e) { lines.push('Манифест: ❌ ' + e.message); }
+                const standalone = matchMedia('(display-mode: standalone)').matches;
+                lines.push('Запущено как приложение: ' + (standalone ? '✅' : 'нет (открыто во вкладке)'));
+                lines.push('Chrome предложил установку: ' + (deferredInstall ? '✅ нажмите кнопку «Установить приложение»' : 'пока нет'));
+                alert(lines.join('\n'));
+            });
+        }
+    </script>
+</body>
+</html>
